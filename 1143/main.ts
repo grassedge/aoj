@@ -52,14 +52,15 @@ function toDataSets(lines: string[]) {
 
 async function main() {
   const lines = await readLines();
-  const data_set = toDataSets(lines)[0];
+  const data_set = toDataSets(lines)[2];
   let result = solve(data_set);
-  while (result) {
-    console.log("move:", result.move);
-    dump(result.sections, data_set.stones, data_set.goal);
-    console.log();
-    result = result.parent;
-  }
+  console.log(result);
+  // while (result) {
+  //   console.log("move:", result.move);
+  //   dump(result.sections, data_set.stones, data_set.goal);
+  //   console.log();
+  //   result = result.parent;
+  // }
 }
 
 type Step = {
@@ -72,9 +73,14 @@ function solve({ sections, stones, goal }: DataSet) {
   dump(sections, stones, goal);
   console.log("---- ---- ----");
   const queue: Step[] = [{ sections, move: 0, parent: null }];
+  const memo = new Map<string, number>();
   while (queue.length) {
     const current_step = queue.shift();
     if (!current_step) {
+      break;
+    }
+    if (current_step.move === 20) {
+      console.log(current_step);
       break;
     }
     const next_steps = nextSteps({ sections: current_step.sections, stones });
@@ -89,20 +95,34 @@ function solve({ sections, stones, goal }: DataSet) {
           parent: current_step as Step | null,
         };
       } else {
-        // queue.push({
-        //   sections: next_sections,
-        //   move: current_step.move + 1,
-        //   parent: current_step,
-        // });
+        const serialized = serializeSections(next_sections);
+        const cached = memo.get(serialized);
+        const next_move = current_step.move + 1;
+        if (cached && cached < next_move) {
+          //
+        } else {
+          queue.push({
+            sections: next_sections,
+            move: next_move,
+            parent: current_step,
+          });
+          memo.set(serialized, next_move);
+        }
       }
-      dump(
-        next_step.map((f) => f.section).filter((s): s is Section => s !== null),
-        stones,
-        goal
-      );
+      // dump(
+      //   next_step.map((f) => f.section).filter((s): s is Section => s !== null),
+      //   stones,
+      //   goal
+      // );
     }
   }
   return null;
+}
+
+function serializeSections(sections: Section[]): string {
+  return sections.reduce((str, section) => {
+    return str + `:${section[0]},${section[1]}`;
+  }, "");
 }
 
 function nextSteps({
@@ -122,8 +142,12 @@ function nextSteps({
   _nextSteps({ sections, stones, prev_node: root, i: 0 });
   // console.dir(root, { depth: null });
   const [_, ...flattened] = flattenSectionNode([], root);
-  // dumpSectionNode(flattened);
-  return flattened;
+  const filtered = flattened
+    .map(([_, ...step]) => step)
+    .filter((step) => step.length === sections.length);
+  console.log(filtered.length);
+  dumpSectionNode(flattened.filter((f) => f.length));
+  return filtered;
 }
 
 const moves: [number, number][] = [
